@@ -100,13 +100,19 @@ are stored in `UserVars()`, so they're per-profile.
 
 ## Troubleshooting: nothing appears when the plugin is pressed
 
-The script prints two diagnostic lines via `Printf` on every run - `"SongManager:
-plugin script started"` and `"SongManager: data loaded, ..."` - check your
-command line / status history for these first:
+The entry point is a global `function main(...)` - grandMA3 looks this up on
+the plugin object and calls it on every invocation. If you see
+`LUA: no reference to main function found for plugin` in the command line
+history, the code you pasted in doesn't define `main` (e.g. an older copy
+without it) - re-paste the current version of `SongManager.lua` in full.
 
-- **Neither line appears**: the script isn't executing at all. Re-check that
-  the code was pasted into the plugin object's Lua editor and saved, and that
-  the button/executor is actually assigned to *that* plugin object.
+Otherwise, the script prints two diagnostic lines via `Printf` on every
+press - `"SongManager: plugin invoked"` and `"SongManager: data loaded, ..."`
+- check your command line / status history for these first:
+
+- **Neither line appears**: `main` isn't being reached at all - check for the
+  `no reference to main function` message above, and that the button/executor
+  is assigned to *this* plugin object.
 - **Both lines appear but no popup shows**: the script is running but a UI
   call isn't rendering - check the status/error history for a line starting
   `SongManager Error:` (the plugin also tries to show this as a popup). If an
@@ -117,6 +123,6 @@ command line / status history for these first:
   `TextInput`/`Confirm`/`PopupInput` was open) - re-focus the display and
   press again, or the currently-open dialog needs to be dismissed first.
 
-Variable reads (`GetVar`) on startup are now wrapped defensively so that an
+Variable reads (`GetVar`) on startup are also wrapped defensively so that an
 unexpected error there can't silently kill the whole script before any UI
 has had a chance to show.

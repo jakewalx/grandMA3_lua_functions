@@ -13,6 +13,10 @@
 	  2. Right click the new plugin > "Edit" and paste this entire file in.
 	  3. Assign the plugin to an executor / macro button and press it to open
 	     the menu.
+	  The entry point grandMA3 calls is the global "function main(...)" near
+	  the bottom of this file - if you see "no reference to main function
+	  found for plugin" in the command line history, the pasted-in code is
+	  missing it (e.g. an older copy) - re-paste the full, current file.
 
 	SYNTAX ASSUMPTIONS - PLEASE VERIFY ON YOUR CONSOLE
 	  A handful of command-line templates below are the most likely correct
@@ -48,12 +52,10 @@ local DB_VAR = "SongManagerDB"
 local MYVIEWS_VAR = "SongManagerMyViews"
 local LASTTAP_VAR = "SongManagerLastTap"
 
--- Whatever grandMA3 passes into the plugin invocation (e.g. the button /
--- object that triggered it), captured defensively - some popup calls can
--- use it as a display/anchor hint if present.
-local INVOKE_ARGS = { ... }
-
-Printf("SongManager: plugin script started")
+-- Whatever grandMA3 passes into main() on each invocation (e.g. the
+-- button / object that triggered it) - populated inside main(), not at
+-- chunk load time. Some popup calls can use it as a display/anchor hint.
+local INVOKE_ARGS = {}
 
 -- Variable access wrapped in pcall: on some setups GetVar/SetVar on a
 -- variable name that has never been used before can behave unexpectedly,
@@ -992,23 +994,32 @@ end
 
 -- ===================================================================
 -- Entry point
+--
+-- grandMA3 looks up a global function called "main" on the plugin object
+-- and calls it each time the plugin is invoked (e.g. on a button press) -
+-- code sitting at the top level of the file only runs once, when the
+-- script is parsed/stored, and is never itself the entry point.
 -- ===================================================================
 
-local function Main()
-	DB = loadDB()
-	Printf("SongManager: data loaded, " .. #DB.songs .. " song(s), initialized=" .. tostring(DB.settings.initialized))
-	if not DB.settings.initialized then
-		setupWizard()
-	end
-	mainMenu()
-	saveDB()
-end
+function main(...)
+	INVOKE_ARGS = { ... }
+	Printf("SongManager: plugin invoked")
 
-local ok, err = pcall(Main)
-if not ok then
-	local msg = "SongManager Error: " .. tostring(err)
-	ErrPrintf(msg)
-	-- Best-effort: also surface the error as a visible popup, since ErrPrintf
-	-- alone can be easy to miss on the console.
-	pcall(Confirm, "SongManager Error", msg, nil, false)
+	local ok, err = pcall(function()
+		DB = loadDB()
+		Printf("SongManager: data loaded, " .. #DB.songs .. " song(s), initialized=" .. tostring(DB.settings.initialized))
+		if not DB.settings.initialized then
+			setupWizard()
+		end
+		mainMenu()
+		saveDB()
+	end)
+
+	if not ok then
+		local msg = "SongManager Error: " .. tostring(err)
+		ErrPrintf(msg)
+		-- Best-effort: also surface the error as a visible popup, since ErrPrintf
+		-- alone can be easy to miss on the console.
+		pcall(Confirm, "SongManager Error", msg, nil, false)
+	end
 end
