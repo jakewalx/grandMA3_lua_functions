@@ -132,12 +132,13 @@ has had a chance to show.
 
 ## Troubleshooting: the menu opens but selecting an option does nothing
 
-This was a real bug, now fixed: `PopupInput`'s documented `items` format
-(`{{'str'|'int'|..., name, ...}, ...}`) doesn't match how real, working
-grandMA3 plugins actually call it - they pass `items` as a flat array of
-plain strings. Passing the documented tuple shape instead means the value
-`PopupInput` returns for your selection never matches any menu label, so
-every `if val == "..."` check in the menu code silently falls through and
-the same menu just redraws - indistinguishable from the button not doing
-anything. If you're running a copy of this file from before this fix,
-re-paste the current version.
+This was a real bug, now fixed. `PopupInput`'s `items` must be
+`{{'str', name, value}, ...}` - confirmed directly against a live
+console's own API validation error, which rejects a flat array of plain
+strings outright ("LUA API Syntax error"). The actual defect was the third
+tuple element (`value`, what gets returned as your selection): an
+`{'str', name}` pair without it is still valid Lua and compiles fine, but
+leaves the returned selected value `nil`, so every `if val == "..."` check
+in the menu code silently fails to match and the same menu just redraws -
+indistinguishable from the button not doing anything. If you're running a
+copy of this file from before this fix, re-paste the current version.

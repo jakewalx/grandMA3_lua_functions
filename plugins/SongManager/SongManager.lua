@@ -214,13 +214,16 @@ end
 
 local function menu(title, items)
 	if #items == 0 then return nil, nil end
-	-- items must be a flat array of plain strings - real working plugins
-	-- pass items this way, not as {'str', name} tuples (the doc comment
-	-- on PopupInput is misleading here). Passing tuples instead means the
-	-- returned selected_value never matches an item label, so every
-	-- string-based dispatch below silently falls through and the same
-	-- menu just redraws - which looks exactly like "nothing happens".
-	local idx, val = PopupInput({ title = title, items = items })
+	-- grandMA3's own API validation rejects a flat string array here
+	-- ("LUA API Syntax error") - items must be {{'str', name, value}...}.
+	-- The third element is the value returned as selected_value on pick;
+	-- it must be supplied explicitly (a 2-element {'str', name} tuple
+	-- leaves it nil, which is why selections silently matched nothing).
+	local popTable = { title = title, items = {} }
+	for _, label in ipairs(items) do
+		table.insert(popTable.items, { "str", label, label })
+	end
+	local idx, val = PopupInput(popTable)
 	if not idx or idx == 0 then return nil, nil end
 	-- Fall back to looking the label up ourselves if val ever comes back
 	-- empty, so dispatch never depends solely on PopupInput's 2nd result.
