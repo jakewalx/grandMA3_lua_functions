@@ -6,6 +6,10 @@ Place `grandMA3_lua_functions.lua` in your Visual Studio Code workspace, in a di
 
 This library is derived from the `grandMA3_lua_functions.txt` file that is generated in the grandMA3 application by executing the `HelpLua` command.
 
+## PLUGINS
+`plugins/` contains ready-to-use grandMA3 Lua plugins built with this library:
+- [`plugins/SongManager`](plugins/SongManager) - per-song control of sequences, macros, pages, timecodes, executors, BPM reference, and views.
+
 
 OPEN ALPHA
 
