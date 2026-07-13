@@ -48,6 +48,32 @@ local DB_VAR = "SongManagerDB"
 local MYVIEWS_VAR = "SongManagerMyViews"
 local LASTTAP_VAR = "SongManagerLastTap"
 
+-- Whatever grandMA3 passes into the plugin invocation (e.g. the button /
+-- object that triggered it), captured defensively - some popup calls can
+-- use it as a display/anchor hint if present.
+local INVOKE_ARGS = { ... }
+
+Printf("SongManager: plugin script started")
+
+-- Variable access wrapped in pcall: on some setups GetVar/SetVar on a
+-- variable name that has never been used before can behave unexpectedly,
+-- and an unguarded error here (on the very first run, before any UI has
+-- shown) would be caught by the outer pcall and produce total silence.
+local function safeGetVar(scope, name)
+	local ok, result = pcall(GetVar, scope, name)
+	if ok then return result end
+	return nil
+end
+
+local function safeSetVar(scope, name, value)
+	local ok = pcall(SetVar, scope, name, value)
+	return ok
+end
+
+local function safeDelVar(scope, name)
+	pcall(DelVar, scope, name)
+end
+
 -- ===================================================================
 -- Small utilities
 -- ===================================================================
@@ -164,16 +190,22 @@ end
 local DB = nil
 
 local function loadDB()
-	local raw = GetVar(GlobalVars(), DB_VAR)
-	local tbl = deserialize(raw)
-	if type(tbl) == "table" and tbl.settings and tbl.songs then
+	local raw = safeGetVar(GlobalVars(), DB_VAR)
+	local ok, tbl = pcall(deserialize, raw)
+	if ok and type(tbl) == "table" and type(tbl.settings) == "table" and type(tbl.songs) == "table" then
+		-- fill in any settings sub-keys missing from an older/partial save
+		local defaults = defaultSettings()
+		for k, v in pairs(defaults) do
+			if tbl.settings[k] == nil then tbl.settings[k] = v end
+		end
+		tbl.nextId = tbl.nextId or 1
 		return tbl
 	end
 	return defaultDB()
 end
 
 local function saveDB()
-	SetVar(GlobalVars(), DB_VAR, serializeTable(DB))
+	safeSetVar(GlobalVars(), DB_VAR, serializeTable(DB))
 end
 
 -- ===================================================================
@@ -183,6 +215,7 @@ end
 local function menu(title, items)
 	if #items == 0 then return nil, nil end
 	local popTable = { title = title, items = {} }
+	if INVOKE_ARGS[1] ~= nil then popTable.caller = INVOKE_ARGS[1] end
 	for _, label in ipairs(items) do
 		table.insert(popTable.items, { "str", label })
 	end
@@ -310,7 +343,7 @@ local function getActiveTemplateViews()
 	for _, tv in ipairs(DB.settings.templateViews) do
 		table.insert(views, tv.view)
 	end
-	local myViewsRaw = GetVar(UserVars(), MYVIEWS_VAR)
+	local myViewsRaw = safeGetVar(UserVars(), MYVIEWS_VAR)
 	if not isBlank(myViewsRaw) then
 		for numStr in tostring(myViewsRaw):gmatch("%d+") do
 			table.insert(views, tonumber(numStr))
@@ -369,8 +402,8 @@ end
 
 local function tapTempo()
 	local now = Time()
-	local last = tonumber(GetVar(UserVars(), LASTTAP_VAR))
-	SetVar(UserVars(), LASTTAP_VAR, tostring(now))
+	local last = tonumber(safeGetVar(UserVars(), LASTTAP_VAR))
+	safeSetVar(UserVars(), LASTTAP_VAR, tostring(now))
 	if last and now > last then
 		local deltaMs = now - last
 		if deltaMs > 200 and deltaMs < 3000 then
@@ -745,7 +778,7 @@ local function templateViewsMenu()
 			table.insert(items, "View " .. tv.view .. " (" .. tv.scope .. ")")
 		end
 		table.insert(items, "+ Add Template View")
-		table.insert(items, "My Personal Views: " .. (GetVar(UserVars(), MYVIEWS_VAR) or "(none)"))
+		table.insert(items, "My Personal Views: " .. (safeGetVar(UserVars(), MYVIEWS_VAR) or "(none)"))
 		table.insert(items, "Load A Template View On This Display")
 		table.insert(items, "Back")
 		local idx, val = menu("Template Views", items)
@@ -757,8 +790,8 @@ local function templateViewsMenu()
 				table.insert(DB.settings.templateViews, { view = round(v), scope = "global" })
 			end
 		elseif val:match("^My Personal Views") then
-			local v = ask("Comma-separated view numbers just for you (this operator profile)", GetVar(UserVars(), MYVIEWS_VAR))
-			if v ~= nil then SetVar(UserVars(), MYVIEWS_VAR, v) end
+			local v = ask("Comma-separated view numbers just for you (this operator profile)", safeGetVar(UserVars(), MYVIEWS_VAR))
+			if v ~= nil then safeSetVar(UserVars(), MYVIEWS_VAR, v) end
 		elseif val == "Load A Template View On This Display" then
 			loadTemplateViewOnThisDisplay()
 		elseif idx <= #DB.settings.templateViews then
@@ -856,7 +889,7 @@ local function resetMenu()
 						deleteTarget("View " .. tv.view)
 					end
 					if undo then CloseUndo(undo) end
-					DelVar(GlobalVars(), DB_VAR)
+					safeDelVar(GlobalVars(), DB_VAR)
 					DB = defaultDB()
 					saveDB()
 					info("Song Manager", "Full reset complete.")
@@ -963,6 +996,7 @@ end
 
 local function Main()
 	DB = loadDB()
+	Printf("SongManager: data loaded, " .. #DB.songs .. " song(s), initialized=" .. tostring(DB.settings.initialized))
 	if not DB.settings.initialized then
 		setupWizard()
 	end
@@ -972,5 +1006,9 @@ end
 
 local ok, err = pcall(Main)
 if not ok then
-	ErrPrintf("SongManager Error: " .. tostring(err))
+	local msg = "SongManager Error: " .. tostring(err)
+	ErrPrintf(msg)
+	-- Best-effort: also surface the error as a visible popup, since ErrPrintf
+	-- alone can be easy to miss on the console.
+	pcall(Confirm, "SongManager Error", msg, nil, false)
 end

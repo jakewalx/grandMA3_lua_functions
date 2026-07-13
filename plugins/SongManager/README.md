@@ -97,3 +97,26 @@ Song and settings data is stored as a single serialized Lua table in a
 show-global variable (`GlobalVars()`), so it travels with the show file.
 Each operator's personal template view list and last tap-tempo timestamp
 are stored in `UserVars()`, so they're per-profile.
+
+## Troubleshooting: nothing appears when the plugin is pressed
+
+The script prints two diagnostic lines via `Printf` on every run - `"SongManager:
+plugin script started"` and `"SongManager: data loaded, ..."` - check your
+command line / status history for these first:
+
+- **Neither line appears**: the script isn't executing at all. Re-check that
+  the code was pasted into the plugin object's Lua editor and saved, and that
+  the button/executor is actually assigned to *that* plugin object.
+- **Both lines appear but no popup shows**: the script is running but a UI
+  call isn't rendering - check the status/error history for a line starting
+  `SongManager Error:` (the plugin also tries to show this as a popup). If an
+  error is genuinely happening, please report it (with a screenshot/text of
+  the message) so it can be root-caused.
+- **Lines appear once, then never again on later presses**: check whether the
+  plugin is mid-dialog already (e.g. the console lost focus while a
+  `TextInput`/`Confirm`/`PopupInput` was open) - re-focus the display and
+  press again, or the currently-open dialog needs to be dismissed first.
+
+Variable reads (`GetVar`) on startup are now wrapped defensively so that an
+unexpected error there can't silently kill the whole script before any UI
+has had a chance to show.
