@@ -130,15 +130,19 @@ Variable reads (`GetVar`) on startup are also wrapped defensively so that an
 unexpected error there can't silently kill the whole script before any UI
 has had a chance to show.
 
-## Troubleshooting: the menu opens but selecting an option does nothing
+## Troubleshooting: `LUA API Syntax error` on every `PopupInput` call
 
-This was a real bug, now fixed. `PopupInput`'s `items` must be
-`{{'str', name, value}, ...}` - confirmed directly against a live
-console's own API validation error, which rejects a flat array of plain
-strings outright ("LUA API Syntax error"). The actual defect was the third
-tuple element (`value`, what gets returned as your selection): an
-`{'str', name}` pair without it is still valid Lua and compiles fine, but
-leaves the returned selected value `nil`, so every `if val == "..."` check
-in the menu code silently fails to match and the same menu just redraws -
-indistinguishable from the button not doing anything. If you're running a
-copy of this file from before this fix, re-paste the current version.
+This was a real bug, now fixed. `PopupInput`'s `caller` field is required
+in practice (despite the doc comment not marking it so) - a live console
+rejected every call with `LUA API Syntax error`, regardless of how `items`
+was formatted, until `caller` was supplied. This matches the dedicated
+`PopupInput()` example in MA Lighting's own API documentation repo, which
+always sets `caller` to a display handle and passes `items` as a flat
+array of plain strings.
+
+The plugin now passes `caller = <display handle>` on every menu call -
+the display handle `main()` receives if the plugin was invoked from a
+button/executor, falling back to `GetFocusDisplay()` for invocations that
+don't supply one (e.g. running it via `Call Plugin n` from the command
+line). If you're running a copy of this file from before this fix,
+re-paste the current version.

@@ -189,6 +189,14 @@ end
 
 local DB = nil
 
+-- The display handle passed into main() (or GetFocusDisplay() as a
+-- fallback for invocations that don't supply one, e.g. "Call Plugin n"
+-- from the command line). PopupInput's `caller` field appears to be
+-- required, not optional, despite the doc comment not marking it so -
+-- confirmed live: the API rejects the call with a syntax error when it
+-- is missing, regardless of the `items` field's format.
+local DISPLAY_HANDLE = nil
+
 local function loadDB()
 	local raw = safeGetVar(GlobalVars(), DB_VAR)
 	local ok, tbl = pcall(deserialize, raw)
@@ -214,15 +222,12 @@ end
 
 local function menu(title, items)
 	if #items == 0 then return nil, nil end
-	-- grandMA3's own API validation rejects a flat string array here
-	-- ("LUA API Syntax error") - items must be {{'str', name, value}...}.
-	-- The third element is the value returned as selected_value on pick;
-	-- it must be supplied explicitly (a 2-element {'str', name} tuple
-	-- leaves it nil, which is why selections silently matched nothing).
-	local popTable = { title = title, items = {} }
-	for _, label in ipairs(items) do
-		table.insert(popTable.items, { "str", label, label })
-	end
+	-- Matches the dedicated PopupInput() example in MA Lighting's own API
+	-- docs: items as a flat array of plain strings, plus a `caller`
+	-- display handle - the field that was actually missing and causing
+	-- the syntax error, independent of how `items` was shaped.
+	local popTable = { title = title, items = items }
+	if DISPLAY_HANDLE ~= nil then popTable.caller = DISPLAY_HANDLE end
 	local idx, val = PopupInput(popTable)
 	if not idx or idx == 0 then return nil, nil end
 	-- Fall back to looking the label up ourselves if val ever comes back
@@ -1008,10 +1013,12 @@ end
 -- matter what the function is named or whether it's local/global.
 -- ===================================================================
 
-local function main(...)
+local function main(displayHandle, ...)
 	Printf("SongManager: plugin invoked")
 
 	local ok, err = pcall(function()
+		local ok2, focusDisplay = pcall(GetFocusDisplay)
+		DISPLAY_HANDLE = displayHandle or (ok2 and focusDisplay) or nil
 		DB = loadDB()
 		Printf("SongManager: data loaded, " .. #DB.songs .. " song(s), initialized=" .. tostring(DB.settings.initialized))
 		if not DB.settings.initialized then
