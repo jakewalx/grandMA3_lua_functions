@@ -129,3 +129,15 @@ press - `"SongManager: plugin invoked"` and `"SongManager: data loaded, ..."`
 Variable reads (`GetVar`) on startup are also wrapped defensively so that an
 unexpected error there can't silently kill the whole script before any UI
 has had a chance to show.
+
+## Troubleshooting: the menu opens but selecting an option does nothing
+
+This was a real bug, now fixed: `PopupInput`'s documented `items` format
+(`{{'str'|'int'|..., name, ...}, ...}`) doesn't match how real, working
+grandMA3 plugins actually call it - they pass `items` as a flat array of
+plain strings. Passing the documented tuple shape instead means the value
+`PopupInput` returns for your selection never matches any menu label, so
+every `if val == "..."` check in the menu code silently falls through and
+the same menu just redraws - indistinguishable from the button not doing
+anything. If you're running a copy of this file from before this fix,
+re-paste the current version.

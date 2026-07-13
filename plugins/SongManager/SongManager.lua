@@ -55,11 +55,6 @@ local DB_VAR = "SongManagerDB"
 local MYVIEWS_VAR = "SongManagerMyViews"
 local LASTTAP_VAR = "SongManagerLastTap"
 
--- Whatever grandMA3 passes into main() on each invocation (e.g. the
--- button / object that triggered it) - populated inside main(), not at
--- chunk load time. Some popup calls can use it as a display/anchor hint.
-local INVOKE_ARGS = {}
-
 -- Variable access wrapped in pcall: on some setups GetVar/SetVar on a
 -- variable name that has never been used before can behave unexpectedly,
 -- and an unguarded error here (on the very first run, before any UI has
@@ -219,14 +214,17 @@ end
 
 local function menu(title, items)
 	if #items == 0 then return nil, nil end
-	local popTable = { title = title, items = {} }
-	if INVOKE_ARGS[1] ~= nil then popTable.caller = INVOKE_ARGS[1] end
-	for _, label in ipairs(items) do
-		table.insert(popTable.items, { "str", label })
-	end
-	local idx, val = PopupInput(popTable)
+	-- items must be a flat array of plain strings - real working plugins
+	-- pass items this way, not as {'str', name} tuples (the doc comment
+	-- on PopupInput is misleading here). Passing tuples instead means the
+	-- returned selected_value never matches an item label, so every
+	-- string-based dispatch below silently falls through and the same
+	-- menu just redraws - which looks exactly like "nothing happens".
+	local idx, val = PopupInput({ title = title, items = items })
 	if not idx or idx == 0 then return nil, nil end
-	return idx, val
+	-- Fall back to looking the label up ourselves if val ever comes back
+	-- empty, so dispatch never depends solely on PopupInput's 2nd result.
+	return idx, (val ~= nil and val ~= "" and val) or items[idx]
 end
 
 local function ask(title, default)
@@ -1008,7 +1006,6 @@ end
 -- ===================================================================
 
 local function main(...)
-	INVOKE_ARGS = { ... }
 	Printf("SongManager: plugin invoked")
 
 	local ok, err = pcall(function()
