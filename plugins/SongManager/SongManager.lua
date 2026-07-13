@@ -13,10 +13,13 @@
 	  2. Right click the new plugin > "Edit" and paste this entire file in.
 	  3. Assign the plugin to an executor / macro button and press it to open
 	     the menu.
-	  The entry point grandMA3 calls is the global "function main(...)" near
-	  the bottom of this file - if you see "no reference to main function
-	  found for plugin" in the command line history, the pasted-in code is
-	  missing it (e.g. an older copy) - re-paste the full, current file.
+	  grandMA3 loads a plugin's code as a Lua module: it runs the whole
+	  file once and then calls whatever the file *returns* on every
+	  subsequent invocation. The "return main" at the very end of this
+	  file is what makes that work - if you see "no reference to main
+	  function found for plugin" in the command line history, the
+	  pasted-in code is missing that return statement (e.g. an older
+	  copy) - re-paste the full, current file.
 
 	SYNTAX ASSUMPTIONS - PLEASE VERIFY ON YOUR CONSOLE
 	  A handful of command-line templates below are the most likely correct
@@ -995,13 +998,16 @@ end
 -- ===================================================================
 -- Entry point
 --
--- grandMA3 looks up a global function called "main" on the plugin object
--- and calls it each time the plugin is invoked (e.g. on a button press) -
--- code sitting at the top level of the file only runs once, when the
--- script is parsed/stored, and is never itself the entry point.
+-- grandMA3 loads a plugin's Lua code as a module: the whole chunk runs
+-- once (defining everything above), and grandMA3 calls whatever that
+-- chunk returns each time the plugin is invoked (e.g. on a button
+-- press). The "return main" at the very bottom of this file is what
+-- grandMA3 is actually looking for - without it, nothing is callable
+-- and you get "no reference to main function found for plugin" no
+-- matter what the function is named or whether it's local/global.
 -- ===================================================================
 
-function main(...)
+local function main(...)
 	INVOKE_ARGS = { ... }
 	Printf("SongManager: plugin invoked")
 
@@ -1023,3 +1029,5 @@ function main(...)
 		pcall(Confirm, "SongManager Error", msg, nil, false)
 	end
 end
+
+return main

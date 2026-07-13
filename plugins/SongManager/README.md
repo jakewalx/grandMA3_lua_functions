@@ -100,11 +100,14 @@ are stored in `UserVars()`, so they're per-profile.
 
 ## Troubleshooting: nothing appears when the plugin is pressed
 
-The entry point is a global `function main(...)` - grandMA3 looks this up on
-the plugin object and calls it on every invocation. If you see
+grandMA3 loads a plugin's code as a Lua module: it runs the whole file once
+(to define everything) and then calls whatever that file *returns* on every
+subsequent invocation. This file ends with `return main` - that return
+statement is what grandMA3 is actually looking for. If you see
 `LUA: no reference to main function found for plugin` in the command line
-history, the code you pasted in doesn't define `main` (e.g. an older copy
-without it) - re-paste the current version of `SongManager.lua` in full.
+history, the code you pasted in doesn't end with that `return` (e.g. an
+older copy, or the paste got truncated) - re-paste the current version of
+`SongManager.lua` in full, all the way to the last line.
 
 Otherwise, the script prints two diagnostic lines via `Printf` on every
 press - `"SongManager: plugin invoked"` and `"SongManager: data loaded, ..."`
